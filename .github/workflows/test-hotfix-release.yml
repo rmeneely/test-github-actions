@@ -1,0 +1,216 @@
+name: Build Hotfix Release
+# This workflow tests GitHub Actions used within a hotfix release.
+
+# Workflow triggers
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: 'Release name'
+        required: true
+        type: string
+
+defaults:
+  run:
+    shell: bash
+
+# These permissions are needed to interact with GitHub's OIDC Token endpoint.
+permissions:
+  id-token: write
+  contents: read
+
+# Workflow environment variables
+env:
+  ORGANIZATION: rmeneely
+  ENVIRONMENT: staging
+  PRODUCT: page-builder
+  APPLICATION: test-github-actions
+  SLACK_WEBHOOK_URL: 'https://hooks.slack.com/services/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'
+  SLACK_CHANNEL: test-richard
+  JIRA_RELEASE_REF: refs/heads/jira/release/
+  VERSION_BRANCH: version
+  RELEASE_NAME: ''
+  SOURCE_BRANCH: main
+  CONFIGVARS_FILE: '.github/.configvars'
+  GITHUB_RELEASE_NOTES_FILE: '.github/.release_notes'
+  JIRA_RELEASE_NOTES_FILE: '.github/.release_notes.jira'
+  TEMPLATES_DIR: 'app/templates'
+
+# Workflow jobs
+jobs:
+  ###########################
+  # Job
+  ###########################
+  Test_Hotfix_Release:
+        runs-on: ubuntu-latest
+
+        permissions:
+          id-token: write
+          contents: read
+
+
+        outputs:
+          environment: ${{ env.ENVIRONMENT }}
+          organization: ${{ env.ORGANIZATION }}
+          release-name: ${{ env.RELEASE_NAME }}
+          release-branch: ${{ env.VERSION_BRANCH }}
+
+        steps:
+          #############
+          # Get input
+          #############
+          - if: ${{ github.event_name == 'workflow_dispatch' }} # Triggered by workflow_dispatch
+            name: Get inputs
+            run: |
+              echo "RELEASE_NAME=${{ github.event.inputs.release_name }}" >> $GITHUB_ENV
+
+          #############################
+          # Set environment variables
+          #############################
+          - name: Set environment variables
+            run: |
+              echo "APPLICATION_REPOSITORY=${{ env.ORGANIZATION }}/${{ env.APPLICATION }}" >> $GITHUB_ENV
+              echo "VERSION_BRANCH=${{ env.VERSION_BRANCH }}/${{ env.RELEASE_NAME }}" >> $GITHUB_ENV
+              echo "RELEASE_TAG=${{ env.RELEASE_NAME }}" >> $GITHUB_ENV
+              echo "TMP_DIR"=${{ runner.temp }} >> $GITHUB_ENV
+              echo "END_TAG_PATTERN=HEAD" >> $GITHUB_ENV
+
+          - name: Show env
+            run: env | sort
+
+          #########################
+          # Create version branch
+          #########################
+          - name: Configure Git
+            run: |
+              git config --global user.name "GitHub Actions"
+              git config --global user.email ""
+
+          - name: Checkout repository
+            uses: actions/checkout@v3
+
+          - name: Set branch to either RELEASE_TAG or HEAD of master
+            run: git reset --hard ${{ env.RELEASE_TAG }} || true
+
+          - name: Get major.minor version
+            run: echo "${{ env.RELEASE_TAG }}" | cut -d. -f1,2 | sed -e 's/^/MINOR_VERSION=/' >> $GITHUB_ENV
+
+          - name: Get last tag which uses the same major.minor version
+            uses: rmeneely/git-last-tag@v1 # https://github.com/marketplace/actions/git-last-tag
+            with:
+              tag_pattern: '${{ env.MINOR_VERSION }}.[0-9]*'
+              ignore_tag_pattern: ${{ env.RELEASE_TAG }}
+          - name: Set last release tag
+            run: |
+              echo "LAST_RELEASE_TAG=${{ env.LAST_TAG }}" >> $GITHUB_ENV
+
+          - name: Get prior release tag for release notes
+            uses: rmeneely/git-last-tag@v1 # https://github.com/marketplace/actions/git-last-tag
+            with:
+              tag_pattern: 'v[0-9]*.[0-9]*.[0-9]*'
+              ignore_tag_pattern: ${{ env.RELEASE_TAG }}
+          - name: Set last release tag
+            run: |
+              echo "RELEASE_NOTES_TAG=${{ env.LAST_TAG }}" >> $GITHUB_ENV
+
+          - name: Set end_tag_pattern to either HEAD or the release tag if it exists
+            run: |
+              if [[ $(git tag -l ${{ env.RELEASE_TAG }}) ]]; then echo "END_TAG_PATTERN=${{ env.RELEASE_TAG }}" >> $GITHUB_ENV ; fi
+              if [[ $(git tag -l ${{ env.RELEASE_TAG }}) ]]; then echo "RELEASE_TAG_EXISTS=true" >> $GITHUB_ENV ; fi
+
+          - name: Get Hotfix commits
+            id: hotfix-commits
+            uses: rmeneely/git-matching-commits@v2 # https://github.com/marketplace/actions/git-matching-commits
+            with:
+              start_tag_pattern: ${{ env.LAST_RELEASE_TAG }}
+              end_tag_pattern: ${{ env.END_TAG_PATTERN }}
+              commit_message_pattern: '\[HOTFIX\]'
+              github_token: ${{ secrets.ACTIONS_WORKFLOW_TOKEN }}
+              github_repository: ${{ env.APPLICATION_REPOSITORY }}
+              github_labels: 'hotfix'
+              # release_notes_file: ${{ env.GITHUB_RELEASE_NOTES_FILE }}
+          - name: Set Hotfix commits
+            run: echo "HOTFIX_COMMITS=${{ steps.hotfix-commits.outputs.commits }}" >> $GITHUB_ENV
+
+          # - name: Create a release tag on last matching commit (fail silently if it already exists)
+          #   if: ${{ steps.hotfix-commits.outputs.last_commit != '' }}
+          #   run: |
+          #     git tag -a -m "Release ${{ env.RELEASE_NAME }}" ${{ env.RELEASE_TAG }} ${{ steps.hotfix-commits.outputs.last_commit }} || true
+          #     git push origin ${{ env.RELEASE_TAG }} || true
+
+          # - name: Create a hotfix version branch using the last version branch/tag as a base branch
+          #   run: |
+          #     git push origin --delete ${{ env.VERSION_BRANCH }} || true
+          #     git branch -D ${{ env.VERSION_BRANCH }} || true
+          #     git fetch --tags
+          #     git reset --hard ${{ env.RELEASE_TAG }} || true
+          - run: |
+              git checkout version/${{ env.LAST_RELEASE_TAG }}
+              git checkout -b ${{ env.VERSION_BRANCH }}
+              # git push --set-upstream origin ${{ env.VERSION_BRANCH }} || true
+
+          - name: Show git log (pre-cherry-pick)
+            run: git log
+
+          - name: Cherry pick hotfix commits - one at a time in case of conflicts
+            if: ${{ env.HOTFIX_COMMITS != '' }}
+            run: echo ${{ env.HOTFIX_COMMITS }} | xargs git cherry-pick -m 1 --keep-redundant-commits || true
+
+          - name: Show git log (post-cherry-pick)
+            run: git log
+
+          # - name: Push the changes to the hotfix version branch
+          #   run: git push origin
+
+          ##########################
+          # Generate release notes
+          ##########################
+          # - name: Download scripts
+          #   run: |
+          #     mkdir -p .github/scripts | true
+          #     echo "${{ vars.SED_GITHUB_TO_SLACK }}" > .github/scripts/github-to-slack.sed
+          #     echo "${{ vars.SED_GITHUB_TO_JIRA }}" > .github/scripts/github-to-jira.sed
+          #     echo "${{ vars.RELEASE_NOTES_TO_JSON }}" > .github/scripts/release-notes-to-json.py.encoded
+          #     echo "${{ vars.HOTFIX_RELEASE_NOTES }}" > .github/scripts/hotfix-release-notes.py.encoded
+          #     base64 -d .github/scripts/release-notes-to-json.py.encoded > .github/scripts/release-notes-to-json.py
+          #     chmod +x .github/scripts/release-notes-to-json.py
+          #     base64 -d .github/scripts/hotfix-release-notes.py.encoded > .github/scripts/hotfix-release-notes.py
+          #     chmod +x .github/scripts/hotfix-release-notes.py
+
+          - name: Append release notes
+            run: |
+              cp -p ${{ env.GITHUB_RELEASE_NOTES_FILE }} ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp
+              echo "\\n" >> ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp
+              echo "\\nThis release is based on the ${{ env.LAST_RELEASE_TAG }} release." >> ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp
+              echo "\\nSee https://github.com/${{ env.ORGANIZATION }}/${{ matrix.application }}/releases/tag/${{ env.LAST_RELEASE_TAG }}" >> ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp
+              echo "\\nThis is a patch to feature release https://github.com/${{ env.ORGANIZATION }}/${{ matrix.application }}/releases/tag/${{ env.MINOR_VERSION }}.0" >> ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp
+              mv ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp ${{ env.GITHUB_RELEASE_NOTES_FILE }}
+
+          - name: Show Release Notes
+            run: cat ${{ env.GITHUB_RELEASE_NOTES_FILE }}
+
+          #######################
+          # Github draft release
+          #######################
+          # - name: Prepare GitHub Release Notes file
+          #   run: |
+          #     sed -e 's/\\n/\n/g' ${{ env.GITHUB_RELEASE_NOTES_FILE }} > ${{ env.GITHUB_RELEASE_NOTES_FILE }}.draft
+          #     cat ${{ env.GITHUB_RELEASE_NOTES_FILE }}.draft
+          # - name: Create a Github draft release
+          #   if: ${{ steps.hotfix-commits.outputs.last_commit != '' }}
+          #   id: create_release
+          #   uses: softprops/action-gh-release@v1 # https://github.com/marketplace/actions/gh-release
+          #   with:
+          #     token: ${{ secrets.ACTIONS_WORKFLOW_TOKEN }}
+          #     name: Hotfix Release ${{ env.RELEASE_NAME }}
+          #     tag_name: ${{ env.RELEASE_TAG }}
+          #     repository: ${{ env.APPLICATION_REPOSITORY }}
+          #     draft: true
+          #     body_path: ${{ env.GITHUB_RELEASE_NOTES_FILE }}.draft
+          # - name: Set GitHub Release URL
+          #   if: ${{ steps.hotfix-commits.outputs.last_commit != '' }}
+          #   run: echo "GITHUB_RELEASE_URL=${{ steps.create_release.outputs.url }}" >> $GITHUB_ENV
+          #   # run: echo "GITHUB_RELEASE_URL=https://github.com/${{ env.APPLICATION_REPOSITORY }}/releases/tag/${{ env.RELEASE_TAG }}" >> $GITHUB_ENV
+
+
+
