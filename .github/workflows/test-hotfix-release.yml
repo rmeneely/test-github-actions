@@ -187,7 +187,7 @@ jobs:
               mv ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp ${{ env.GITHUB_RELEASE_NOTES_FILE }}
 
           - name: Show Release Notes
-            run: cat ${{ env.GITHUB_RELEASE_NOTES_FILE }}
+            run: cat ${{ env.GITHUB_RELEASE_NOTES_FILE }} | true
 
           #######################
           # Github draft release
