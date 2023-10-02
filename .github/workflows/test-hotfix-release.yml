@@ -179,6 +179,7 @@ jobs:
 
           - name: Append release notes
             run: |
+              if [ ! -f ${{ env.GITHUB_RELEASE_NOTES_FILE }} ]; then touch ${{ env.GITHUB_RELEASE_NOTES_FILE }}; fi
               cp -p ${{ env.GITHUB_RELEASE_NOTES_FILE }} ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp
               echo "\\n" >> ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp
               echo "\\nThis release is based on the ${{ env.LAST_RELEASE_TAG }} release." >> ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp
@@ -187,7 +188,7 @@ jobs:
               mv ${{ env.GITHUB_RELEASE_NOTES_FILE }}.tmp ${{ env.GITHUB_RELEASE_NOTES_FILE }}
 
           - name: Show Release Notes
-            run: cat ${{ env.GITHUB_RELEASE_NOTES_FILE }} | true
+            run: cat ${{ env.GITHUB_RELEASE_NOTES_FILE }}
 
           #######################
           # Github draft release
