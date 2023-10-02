@@ -89,8 +89,8 @@ jobs:
           - name: Checkout repository
             uses: actions/checkout@v3
 
-          - name: Set branch to either RELEASE_TAG or HEAD of master
-            run: git reset --hard ${{ env.RELEASE_TAG }} || true
+          # - name: Set branch to either RELEASE_TAG or HEAD of master
+          #   run: git reset --hard ${{ env.RELEASE_TAG }} || true
 
           - name: Get major.minor version
             run: echo "${{ env.RELEASE_TAG }}" | cut -d. -f1,2 | sed -e 's/^/MINOR_VERSION=/' >> $GITHUB_ENV
