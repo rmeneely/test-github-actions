@@ -90,7 +90,7 @@ jobs:
             uses: actions/checkout@v3
 
           - name: Show git log (post-checkout)
-            run: git log
+            run: git log --max-count=50
 
           # - name: Set branch to either RELEASE_TAG or HEAD of master
           #   run: git reset --hard ${{ env.RELEASE_TAG }} || true
@@ -122,7 +122,7 @@ jobs:
               if [[ $(git tag -l ${{ env.RELEASE_TAG }}) ]]; then echo "RELEASE_TAG_EXISTS=true" >> $GITHUB_ENV ; fi
 
           - name: Git log
-            run: git log
+            run: git log --max-count=50
 
           - name: Get Hotfix commits
             id: hotfix-commits
@@ -156,14 +156,14 @@ jobs:
               # git push --set-upstream origin ${{ env.VERSION_BRANCH }} || true
 
           - name: Show git log (pre-cherry-pick)
-            run: git log
+            run: git log --max-count=50
 
           - name: Cherry pick hotfix commits - one at a time in case of conflicts
             if: ${{ env.HOTFIX_COMMITS != '' }}
             run: echo ${{ env.HOTFIX_COMMITS }} | xargs git cherry-pick -m 1 --keep-redundant-commits || true
 
           - name: Show git log (post-cherry-pick)
-            run: git log
+            run: git log --max-count=50
 
           # - name: Push the changes to the hotfix version branch
           #   run: git push origin
