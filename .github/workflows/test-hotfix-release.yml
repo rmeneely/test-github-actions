@@ -88,6 +88,9 @@ jobs:
 
           - name: Checkout repository
             uses: actions/checkout@v3
+            with:
+              ref: ${{ env.SOURCE_BRANCH }}
+              fetch-depth: 0
 
           - name: Show git log (post-checkout)
             run: git log --max-count=50
