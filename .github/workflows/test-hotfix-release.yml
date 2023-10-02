@@ -118,6 +118,9 @@ jobs:
               if [[ $(git tag -l ${{ env.RELEASE_TAG }}) ]]; then echo "END_TAG_PATTERN=${{ env.RELEASE_TAG }}" >> $GITHUB_ENV ; fi
               if [[ $(git tag -l ${{ env.RELEASE_TAG }}) ]]; then echo "RELEASE_TAG_EXISTS=true" >> $GITHUB_ENV ; fi
 
+          - name: Git log
+            run: git log
+
           - name: Get Hotfix commits
             id: hotfix-commits
             uses: rmeneely/git-matching-commits@v2 # https://github.com/marketplace/actions/git-matching-commits
