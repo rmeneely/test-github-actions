@@ -161,9 +161,15 @@ jobs:
           - name: Show git log (pre-cherry-pick)
             run: git log --max-count=50
 
-          - name: Cherry pick hotfix commits - one at a time in case of conflicts
+          # - name: Cherry pick hotfix commits - one at a time in case of conflicts
+          #   if: ${{ env.HOTFIX_COMMITS != '' }}
+          #   run: echo ${{ env.HOTFIX_COMMITS }} | xargs git cherry-pick -m 1 --keep-redundant-commits || true
+
+          - name: Cherry pick hotfix commits
             if: ${{ env.HOTFIX_COMMITS != '' }}
-            run: echo ${{ env.HOTFIX_COMMITS }} | xargs git cherry-pick -m 1 --keep-redundant-commits || true
+            uses: rmeneely/git-cherry-pick-commits@v1 # https://github.com/marketplace/actions/git-cherry-pick-commits
+            with:
+              commits: ${{ env.HOTFIX_COMMITS }}
 
           - name: Show git log (post-cherry-pick)
             run: git log --max-count=50
