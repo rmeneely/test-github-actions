@@ -129,11 +129,12 @@ jobs:
 
           - name: Get Hotfix commits
             id: hotfix-commits
-            uses: rmeneely/git-matching-commits@v2 # https://github.com/marketplace/actions/git-matching-commits
+            uses: rmeneely/git-matching-commits@v2.0.8 # https://github.com/marketplace/actions/git-matching-commits
             with:
               start_tag_pattern: ${{ env.LAST_RELEASE_TAG }}
               end_tag_pattern: ${{ env.END_TAG_PATTERN }}
               commit_message_pattern: '\[HOTFIX\]'
+              commit_type: all
               github_token: ${{ secrets.ACTIONS_WORKFLOW_TOKEN }}
               github_repository: ${{ env.APPLICATION_REPOSITORY }}
               github_labels: 'hotfix'
