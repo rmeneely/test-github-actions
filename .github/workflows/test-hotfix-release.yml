@@ -89,6 +89,9 @@ jobs:
           - name: Checkout repository
             uses: actions/checkout@v3
 
+          - name: Show git log (post-checkout)
+            run: git log
+
           # - name: Set branch to either RELEASE_TAG or HEAD of master
           #   run: git reset --hard ${{ env.RELEASE_TAG }} || true
 
