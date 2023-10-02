@@ -1,4 +1,4 @@
-name: Build Hotfix Release
+name: Test Hotfix Release
 # This workflow tests GitHub Actions used within a hotfix release.
 
 # Workflow triggers
