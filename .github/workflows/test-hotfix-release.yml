@@ -126,7 +126,7 @@ jobs:
 
           - name: Get Hotfix commits
             id: hotfix-commits
-            uses: rmeneely/git-matching-commits@v2.0.7 # https://github.com/marketplace/actions/git-matching-commits
+            uses: rmeneely/git-matching-commits@v2 # https://github.com/marketplace/actions/git-matching-commits
             with:
               start_tag_pattern: ${{ env.LAST_RELEASE_TAG }}
               end_tag_pattern: ${{ env.END_TAG_PATTERN }}
