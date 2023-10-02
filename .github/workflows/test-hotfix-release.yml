@@ -126,7 +126,7 @@ jobs:
 
           - name: Get Hotfix commits
             id: hotfix-commits
-            uses: rmeneely/git-matching-commits@v2 # https://github.com/marketplace/actions/git-matching-commits
+            uses: rmeneely/git-matching-commits@v2.0.7 # https://github.com/marketplace/actions/git-matching-commits
             with:
               start_tag_pattern: ${{ env.LAST_RELEASE_TAG }}
               end_tag_pattern: ${{ env.END_TAG_PATTERN }}
@@ -134,7 +134,7 @@ jobs:
               github_token: ${{ secrets.ACTIONS_WORKFLOW_TOKEN }}
               github_repository: ${{ env.APPLICATION_REPOSITORY }}
               github_labels: 'hotfix'
-              # release_notes_file: ${{ env.GITHUB_RELEASE_NOTES_FILE }}
+              release_notes_file: ${{ env.GITHUB_RELEASE_NOTES_FILE }}
           - name: Set Hotfix commits
             run: echo "HOTFIX_COMMITS=${{ steps.hotfix-commits.outputs.commits }}" >> $GITHUB_ENV
 
